@@ -1,0 +1,356 @@
+<?php
+
+/**
+ * Implements hook_menu().
+ */
+function sameernyaupane_itonics_products_menu() {
+  $items = array();
+  
+  $items['admin/products'] = array(
+    'title' => 'Products',
+    'description' => 'Manage ITONICS products',
+    'page callback' => 'sameernyaupane_itonics_products_list',
+    'access arguments' => array('access product administration'),
+    'type' => MENU_NORMAL_ITEM,
+  );
+  
+  $items['admin/products/add'] = array(
+    'title' => 'Add Product',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('sameernyaupane_itonics_products_form'),
+    'access arguments' => array('create products'),
+    'type' => MENU_LOCAL_ACTION,
+  );
+  
+  $items['admin/products/%/edit'] = array(
+    'title' => 'Edit Product',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('sameernyaupane_itonics_products_form', 2),
+    'access arguments' => array('edit products'),
+    'type' => MENU_CALLBACK,
+  );
+  
+  $items['admin/products/%/delete'] = array(
+    'title' => 'Delete Product',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('sameernyaupane_itonics_products_delete_form', 2),
+    'access arguments' => array('delete products'),
+    'type' => MENU_CALLBACK,
+  );
+  
+  $items['admin/products/%/view'] = array(
+    'title' => 'View Product',
+    'page callback' => 'sameernyaupane_itonics_products_view',
+    'page arguments' => array(2),
+    'access arguments' => array('access product administration'),
+    'type' => MENU_CALLBACK,
+  );
+  
+  return $items;
+}
+
+/**
+ * Implements hook_permission().
+ */
+function sameernyaupane_itonics_products_permission() {
+  return array(
+    'access product administration' => array(
+      'title' => t('Access product administration'),
+    ),
+    'create products' => array(
+      'title' => t('Create products'),
+    ),
+    'edit products' => array(
+      'title' => t('Edit products'),
+    ),
+    'delete products' => array(
+      'title' => t('Delete products'),
+    ),
+  );
+}
+
+/**
+ * Form callback for product add/edit form.
+ */
+function sameernyaupane_itonics_products_form($form, &$form_state, $pid = NULL) {
+  $product = NULL;
+  if ($pid) {
+    $product = db_select('sameernyaupane_itonics_products', 'p')
+      ->fields('p')
+      ->condition('pid', $pid)
+      ->execute()
+      ->fetchObject();
+  }
+  
+  $form['title'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Title'),
+    '#required' => TRUE,
+    '#default_value' => isset($product) ? $product->title : '',
+  );
+  
+  $form['image'] = array(
+    '#type' => 'managed_file',
+    '#title' => t('Image'),
+    '#upload_location' => 'public://product-images/',
+    '#default_value' => isset($product) ? $product->image_fid : NULL,
+  );
+  
+  $form['summary'] = array(
+    '#type' => 'textarea',
+    '#title' => t('Summary'),
+    '#default_value' => isset($product) ? $product->summary : '',
+  );
+  
+  $form['description'] = array(
+    '#type' => 'textarea',
+    '#title' => t('Description'),
+    '#default_value' => isset($product) ? $product->description : '',
+    '#rows' => 10,
+  );
+
+  $categories = array(
+    'software' => t('Software'),
+    'hardware' => t('Hardware'),
+    'service' => t('Service'),
+  );
+  
+  $form['category'] = array(
+    '#type' => 'select',
+    '#title' => t('Category'),
+    '#options' => $categories,
+    '#multiple' => TRUE,
+    '#required' => TRUE,
+    '#default_value' => isset($product) ? unserialize($product->category) : array(),
+    '#attributes' => array('class' => array('multiselect')),
+  );
+  
+  $form['type'] = array(
+    '#type' => 'radios',
+    '#title' => t('Type'),
+    '#options' => array(
+      'physical' => t('Physical'),
+      'digital' => t('Digital'),
+    ),
+    '#required' => TRUE,
+    '#default_value' => isset($product) ? $product->type : '',
+  );
+  
+  $form['owner_email'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Owner Email'),
+    '#required' => TRUE,
+    '#default_value' => isset($product) ? $product->owner_email : '',
+  );
+  
+  $form['expiry_date'] = array(
+    '#type' => 'date_popup',
+    '#title' => t('Expiry Date'),
+    '#date_format' => 'Y-m-d',
+    '#default_value' => isset($product) ? date('Y-m-d', $product->expiry_date) : '',
+  );
+  
+  $form['submit'] = array(
+    '#type' => 'submit',
+    '#value' => t('Save Product'),
+  );
+  
+  return $form;
+}
+
+/**
+ * Form validation handler for product form.
+ */
+function sameernyaupane_itonics_products_form_validate($form, &$form_state) {
+  if (!valid_email_address($form_state['values']['owner_email'])) {
+    form_set_error('owner_email', t('Please enter a valid email address.'));
+  }
+}
+
+/**
+ * Form submission handler for product form.
+ */
+function sameernyaupane_itonics_products_form_submit($form, &$form_state) {
+  $values = $form_state['values'];
+  
+  $record = array(
+    'title' => $values['title'],
+    'image_fid' => $values['image'],
+    'summary' => $values['summary'],
+    'description' => $values['description'],
+    'category' => serialize($values['category']),
+    'type' => $values['type'],
+    'owner_email' => $values['owner_email'],
+    'expiry_date' => !empty($values['expiry_date']) ? strtotime($values['expiry_date']) : NULL,
+    'created' => time(),
+  );
+  
+  if (isset($form_state['build_info']['args'][0])) {
+    $record['pid'] = $form_state['build_info']['args'][0];
+    drupal_write_record('sameernyaupane_itonics_products', $record, 'pid');
+    drupal_set_message(t('Product updated successfully.'));
+  }
+  else {
+    drupal_write_record('sameernyaupane_itonics_products', $record);
+    drupal_set_message(t('Product created successfully.'));
+  }
+  
+  $form_state['redirect'] = 'admin/products';
+}
+
+/**
+ * Implements hook_init().
+ */
+function sameernyaupane_itonics_products_init() {
+  if (path_is_admin('admin/products/*')) {
+    drupal_add_js('sites/all/libraries/tinymce/js/tinymce/tinymce.min.js');
+    drupal_add_js(drupal_get_path('module', 'sameernyaupane_itonics_products') . '/js/tinymce-init.js');
+  }
+}
+
+/**
+ * Page callback: Lists all products.
+ */
+function sameernyaupane_itonics_products_list() {
+  $header = array(
+    array('data' => t('Image')),
+    array('data' => t('Title'), 'field' => 'title'),
+    array('data' => t('Type'), 'field' => 'type'),
+    array('data' => t('Owner Email'), 'field' => 'owner_email'),
+    array('data' => t('Created'), 'field' => 'created', 'sort' => 'desc'),
+    array('data' => t('Operations')),
+  );
+
+  $query = db_select('sameernyaupane_itonics_products', 'p')
+    ->extend('TableSort')
+    ->extend('PagerDefault')
+    ->limit(10);
+  $query->fields('p');
+  $query->orderByHeader($header);
+  $result = $query->execute();
+
+  $rows = array();
+  foreach ($result as $product) {
+    $image = '';
+    if (!empty($product->image_fid)) {
+      $file = file_load($product->image_fid);
+      if ($file) {
+        $image = theme('image_style', array(
+          'style_name' => 'thumbnail',
+          'path' => $file->uri,
+          'alt' => $product->title,
+        ));
+      }
+    }
+
+    $rows[] = array(
+      'data' => array(
+        $image,
+        l($product->title, "admin/products/$product->pid/view"),
+        $product->type,
+        $product->owner_email,
+        format_date($product->created, 'short'),
+        l(t('View'), "admin/products/$product->pid/view") . ' | ' .
+        l(t('Edit'), "admin/products/$product->pid/edit") . ' | ' .
+        l(t('Delete'), "admin/products/$product->pid/delete"),
+      ),
+    );
+  }
+
+  $build['product_table'] = array(
+    '#theme' => 'table',
+    '#header' => $header,
+    '#rows' => $rows,
+    '#empty' => t('No products available.'),
+  );
+
+  $build['pager'] = array(
+    '#theme' => 'pager',
+  );
+
+  return $build;
+}
+
+/**
+ * Page callback: Display product details.
+ */
+function sameernyaupane_itonics_products_view($pid) {
+  $product = db_select('sameernyaupane_itonics_products', 'p')
+    ->fields('p')
+    ->condition('pid', $pid)
+    ->execute()
+    ->fetchObject();
+
+  if (!$product) {
+    drupal_not_found();
+    return;
+  }
+
+  $build = array();
+  
+  // Add image if exists
+  if (!empty($product->image_fid)) {
+    $file = file_load($product->image_fid);
+    if ($file) {
+      $build['image'] = array(
+        '#prefix' => '<div class="product-image">',
+        '#theme' => 'image_style',
+        '#style_name' => 'large',
+        '#path' => $file->uri,
+        '#alt' => $product->title,
+        '#suffix' => '</div>',
+      );
+    }
+  }
+
+  $build['title'] = array(
+    '#prefix' => '<h1>',
+    '#markup' => check_plain($product->title),
+    '#suffix' => '</h1>',
+  );
+
+  $build['type'] = array(
+    '#prefix' => '<div class="product-type"><strong>' . t('Type:') . '</strong> ',
+    '#markup' => check_plain($product->type),
+    '#suffix' => '</div>',
+  );
+
+  $categories = unserialize($product->category);
+  $build['category'] = array(
+    '#prefix' => '<div class="product-categories"><strong>' . t('Categories:') . '</strong> ',
+    '#markup' => implode(', ', array_map('check_plain', $categories)),
+    '#suffix' => '</div>',
+  );
+
+  $build['owner'] = array(
+    '#prefix' => '<div class="product-owner"><strong>' . t('Owner:') . '</strong> ',
+    '#markup' => check_plain($product->owner_email),
+    '#suffix' => '</div>',
+  );
+
+  if (!empty($product->expiry_date)) {
+    $build['expiry'] = array(
+      '#prefix' => '<div class="product-expiry"><strong>' . t('Expires:') . '</strong> ',
+      '#markup' => format_date($product->expiry_date, 'custom', 'Y-m-d'),
+      '#suffix' => '</div>',
+    );
+  }
+
+  if (!empty($product->summary)) {
+    $build['summary'] = array(
+      '#prefix' => '<div class="product-summary"><h2>' . t('Summary') . '</h2>',
+      '#markup' => check_plain($product->summary),
+      '#suffix' => '</div>',
+    );
+  }
+
+  if (!empty($product->description)) {
+    $build['description'] = array(
+      '#prefix' => '<div class="product-description"><h2>' . t('Description') . '</h2>',
+      '#markup' => check_markup($product->description),
+      '#suffix' => '</div>',
+    );
+  }
+
+  return $build;
+} 

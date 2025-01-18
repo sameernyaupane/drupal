@@ -1,0 +1,18 @@
+version: '3'
+services:
+  drupal:
+    build: .
+    ports:
+      - "8080:80"
+    volumes:
+      - ./modules:/var/www/html/sites/all/modules/custom
+    depends_on:
+      - database
+  
+  database:
+    image: mysql:5.7
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: drupal
+      MYSQL_USER: drupal
+      MYSQL_PASSWORD: drupal 

@@ -1,0 +1,67 @@
+<?php
+
+/**
+ * Implements hook_schema().
+ */
+function sameernyaupane_itonics_products_schema() {
+  $schema['sameernyaupane_itonics_products'] = array(
+    'description' => 'Stores product information',
+    'fields' => array(
+      'pid' => array(
+        'description' => 'Primary identifier for a product',
+        'type' => 'serial',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+      'title' => array(
+        'description' => 'Product title',
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+      ),
+      'image_fid' => array(
+        'description' => 'File ID of the product image',
+        'type' => 'int',
+        'unsigned' => TRUE,
+      ),
+      'summary' => array(
+        'description' => 'Product summary',
+        'type' => 'text',
+      ),
+      'description' => array(
+        'description' => 'Product description',
+        'type' => 'text',
+        'size' => 'big',
+      ),
+      'category' => array(
+        'description' => 'Product categories',
+        'type' => 'text',
+      ),
+      'type' => array(
+        'description' => 'Product type',
+        'type' => 'varchar',
+        'length' => 50,
+        'not null' => TRUE,
+      ),
+      'owner_email' => array(
+        'description' => 'Product owner email',
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+      ),
+      'expiry_date' => array(
+        'description' => 'Product expiry date',
+        'type' => 'int',
+        'not null' => FALSE,
+      ),
+      'created' => array(
+        'description' => 'Creation timestamp',
+        'type' => 'int',
+        'not null' => TRUE,
+      ),
+    ),
+    'primary key' => array('pid'),
+  );
+  
+  return $schema;
+} 

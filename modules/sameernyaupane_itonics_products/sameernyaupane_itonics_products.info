@@ -1,0 +1,8 @@
+name = SameerNyaupane ITONICS Products
+description = Product management module for ITONICS
+core = 7.x
+package = Custom
+dependencies[] = image
+dependencies[] = date
+dependencies[] = libraries
+dependencies[] = wysiwyg 
