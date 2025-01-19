@@ -2,7 +2,7 @@ services:
   drupal:
     build: .
     ports:
-      - "8080:80"
+      - "80:80"
     volumes:
       - ./modules:/var/www/html/sites/all/modules/custom
     depends_on:
