@@ -136,10 +136,10 @@ docker-compose up -d --build
 Here are some screenshots of the product management interface:
 
 ### Edit Product Form
-![Edit Product Form](screenshots/edit-product.png)
+![Edit Product Form](screenshots/product-edit.png)
 
-### Products Overview
-![Products Overview](screenshots/products-overview.png)
+### Products List
+![Products List](screenshots/products-list.png)
 
 ### Product Detail View
-![Product Detail View](screenshots/product-detail.png)
+![Product Detail View](screenshots/product-view.png)
