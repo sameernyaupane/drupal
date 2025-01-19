@@ -2,6 +2,20 @@
 
 A Drupal 7 module for managing products with features like categorization, image management, and rich text descriptions.
 
+## Screenshots
+
+Here are some screenshots of the product management interface:
+
+### Edit Product Form
+![Edit Product Form](screenshots/product-edit.png)
+
+### Products List
+![Products List](screenshots/product-list.png)
+
+### Product Detail View
+![Product Detail View](screenshots/product-view.png)
+
+
 ## Prerequisites
 
 - Docker
@@ -130,16 +144,3 @@ docker-compose logs database
 docker-compose down
 docker-compose up -d --build
 ```
-
-## Screenshots
-
-Here are some screenshots of the product management interface:
-
-### Edit Product Form
-![Edit Product Form](screenshots/product-edit.png)
-
-### Products List
-![Products List](screenshots/product-list.png)
-
-### Product Detail View
-![Product Detail View](screenshots/product-view.png)
