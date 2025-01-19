@@ -139,7 +139,7 @@ Here are some screenshots of the product management interface:
 ![Edit Product Form](screenshots/product-edit.png)
 
 ### Products List
-![Products List](screenshots/products-list.png)
+![Products List](screenshots/product-list.png)
 
 ### Product Detail View
 ![Product Detail View](screenshots/product-view.png)
