@@ -1,6 +1,3 @@
-Here's a comprehensive README.md for the application:
-
-```markdown
 # ITONICS Product Management Module for Drupal 7
 
 A Drupal 7 module for managing products with features like categorization, image management, and rich text descriptions.
