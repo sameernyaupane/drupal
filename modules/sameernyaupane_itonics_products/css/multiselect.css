@@ -1,0 +1,38 @@
+.ui-multiselect {
+  padding: 2px 0 2px 4px;
+  text-align: left;
+  background: #fff;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+}
+
+.ui-multiselect-menu {
+  padding: 2px;
+  background: #fff;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.ui-multiselect-checkboxes {
+  position: relative;
+  overflow-y: auto;
+}
+
+.ui-multiselect-checkboxes label {
+  display: block;
+  padding: 3px;
+  border: 1px solid transparent;
+}
+
+.ui-multiselect-checkboxes label input {
+  margin-right: 8px;
+}
+
+.ui-multiselect-checkboxes label.ui-state-hover {
+  background-color: #f5f5f5;
+}
+
+.ui-multiselect-checkboxes label.ui-state-active {
+  background-color: #e8e8e8;
+} 

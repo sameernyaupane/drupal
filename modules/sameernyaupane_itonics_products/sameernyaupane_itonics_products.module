@@ -39,11 +39,12 @@ function sameernyaupane_itonics_products_menu() {
   );
   
   $items['admin/products/%/view'] = array(
-    'title' => 'View Product',
+    'title callback' => 'sameernyaupane_itonics_products_view_title',
+    'title arguments' => array(2),
     'page callback' => 'sameernyaupane_itonics_products_view',
     'page arguments' => array(2),
     'access arguments' => array('access product administration'),
-    'type' => MENU_CALLBACK,
+    'type' => MENU_NORMAL_ITEM,
   );
   
   return $items;
@@ -92,7 +93,12 @@ function sameernyaupane_itonics_products_form($form, &$form_state, $pid = NULL) 
   $form['image'] = array(
     '#type' => 'managed_file',
     '#title' => t('Image'),
+    '#description' => t('Allowed extensions: png jpg jpeg gif. Maximum size: 50MB'),
     '#upload_location' => 'public://product-images/',
+    '#upload_validators' => array(
+      'file_validate_extensions' => array('png jpg jpeg gif'),
+      'file_validate_size' => array(50 * 1024 * 1024), // 50MB limit
+    ),
     '#default_value' => isset($product) ? $product->image_fid : NULL,
   );
   
@@ -106,19 +112,14 @@ function sameernyaupane_itonics_products_form($form, &$form_state, $pid = NULL) 
     '#type' => 'textarea',
     '#title' => t('Description'),
     '#default_value' => isset($product) ? $product->description : '',
+    '#format' => 'full_html',
     '#rows' => 10,
   );
 
-  $categories = array(
-    'software' => t('Software'),
-    'hardware' => t('Hardware'),
-    'service' => t('Service'),
-  );
-  
   $form['category'] = array(
     '#type' => 'select',
     '#title' => t('Category'),
-    '#options' => $categories,
+    '#options' => sameernyaupane_itonics_products_get_categories(),
     '#multiple' => TRUE,
     '#required' => TRUE,
     '#default_value' => isset($product) ? unserialize($product->category) : array(),
@@ -203,8 +204,11 @@ function sameernyaupane_itonics_products_form_submit($form, &$form_state) {
  */
 function sameernyaupane_itonics_products_init() {
   if (path_is_admin('admin/products/*')) {
+    drupal_add_library('system', 'ui.multiselect');
     drupal_add_js('sites/all/libraries/tinymce/js/tinymce/tinymce.min.js');
     drupal_add_js(drupal_get_path('module', 'sameernyaupane_itonics_products') . '/js/tinymce-init.js');
+    drupal_add_js(drupal_get_path('module', 'sameernyaupane_itonics_products') . '/js/multiselect-init.js');
+    drupal_add_css(drupal_get_path('module', 'sameernyaupane_itonics_products') . '/css/multiselect.css');
   }
 }
 
@@ -212,62 +216,84 @@ function sameernyaupane_itonics_products_init() {
  * Page callback: Lists all products.
  */
 function sameernyaupane_itonics_products_list() {
-  $header = array(
-    array('data' => t('Image')),
-    array('data' => t('Title'), 'field' => 'title'),
-    array('data' => t('Type'), 'field' => 'type'),
-    array('data' => t('Owner Email'), 'field' => 'owner_email'),
-    array('data' => t('Created'), 'field' => 'created', 'sort' => 'desc'),
-    array('data' => t('Operations')),
-  );
-
+  $build = array();
+  
+  // Add search form
+  $build['search_form'] = drupal_get_form('sameernyaupane_itonics_products_search_form');
+  
+  // Get search parameters
+  $search = isset($_GET['search']) ? $_GET['search'] : '';
+  $category = isset($_GET['category']) ? $_GET['category'] : '';
+  $type = isset($_GET['type']) ? $_GET['type'] : '';
+  
+  // Build query
   $query = db_select('sameernyaupane_itonics_products', 'p')
-    ->extend('TableSort')
     ->extend('PagerDefault')
+    ->extend('TableSort')
     ->limit(10);
+    
   $query->fields('p');
-  $query->orderByHeader($header);
-  $result = $query->execute();
-
-  $rows = array();
-  foreach ($result as $product) {
-    $image = '';
-    if (!empty($product->image_fid)) {
-      $file = file_load($product->image_fid);
-      if ($file) {
-        $image = theme('image_style', array(
-          'style_name' => 'thumbnail',
-          'path' => $file->uri,
-          'alt' => $product->title,
-        ));
-      }
-    }
-
-    $rows[] = array(
-      'data' => array(
-        $image,
-        l($product->title, "admin/products/$product->pid/view"),
-        $product->type,
-        $product->owner_email,
-        format_date($product->created, 'short'),
-        l(t('View'), "admin/products/$product->pid/view") . ' | ' .
-        l(t('Edit'), "admin/products/$product->pid/edit") . ' | ' .
-        l(t('Delete'), "admin/products/$product->pid/delete"),
-      ),
+  
+  if ($search) {
+    $query->condition(
+      db_or()
+        ->condition('title', '%' . db_like($search) . '%', 'LIKE')
+        ->condition('summary', '%' . db_like($search) . '%', 'LIKE')
+        ->condition('owner_email', '%' . db_like($search) . '%', 'LIKE')
     );
   }
-
-  $build['product_table'] = array(
+  
+  if ($category) {
+    // Search for category in serialized data
+    $serialized_category = '%' . db_like('"' . $category . '"') . '%';
+    $query->condition('category', $serialized_category, 'LIKE');
+  }
+  
+  if ($type) {
+    $query->condition('type', $type);
+  }
+  
+  $header = array(
+    'title' => array('data' => t('Title'), 'field' => 'title'),
+    'type' => array('data' => t('Type'), 'field' => 'type'),
+    'owner' => array('data' => t('Owner'), 'field' => 'owner_email'),
+    'created' => array('data' => t('Created'), 'field' => 'created', 'sort' => 'desc'),
+    'operations' => array('data' => t('Operations')),
+  );
+  
+  $query->orderByHeader($header);
+  $result = $query->execute();
+  
+  // Build the table rows
+  $rows = array();
+  foreach ($result as $product) {
+    $operations = array(
+      l(t('View'), "admin/products/$product->pid/view"),
+      l(t('Edit'), "admin/products/$product->pid/edit"),
+      l(t('Delete'), "admin/products/$product->pid/delete"),
+    );
+    
+    $rows[] = array(
+      'title' => check_plain($product->title),
+      'type' => check_plain($product->type),
+      'owner' => check_plain($product->owner_email),
+      'created' => format_date($product->created, 'short'),
+      'operations' => implode(' | ', $operations),
+    );
+  }
+  
+  $build['table'] = array(
     '#theme' => 'table',
     '#header' => $header,
     '#rows' => $rows,
-    '#empty' => t('No products available.'),
+    '#empty' => t('No products found'),
+    '#attributes' => array('class' => array('product-list')),
   );
-
+  
   $build['pager'] = array(
     '#theme' => 'pager',
   );
-
+  
   return $build;
 }
 
@@ -275,6 +301,8 @@ function sameernyaupane_itonics_products_list() {
  * Page callback: Display product details.
  */
 function sameernyaupane_itonics_products_view($pid) {
+  drupal_add_css(drupal_get_path('module', 'sameernyaupane_itonics_products') . '/css/product-view.css');
+  
   $product = db_select('sameernyaupane_itonics_products', 'p')
     ->fields('p')
     ->condition('pid', $pid)
@@ -286,13 +314,21 @@ function sameernyaupane_itonics_products_view($pid) {
     return;
   }
 
-  $build = array();
+  $build = array(
+    '#prefix' => '<div class="product-view-wrapper">',
+    '#suffix' => '</div>',
+  );
   
-  // Add image if exists
+  // Left column for image
+  $build['left_column'] = array(
+    '#prefix' => '<div class="product-left-column">',
+    '#suffix' => '</div>',
+  );
+
   if (!empty($product->image_fid)) {
     $file = file_load($product->image_fid);
     if ($file) {
-      $build['image'] = array(
+      $build['left_column']['image'] = array(
         '#prefix' => '<div class="product-image">',
         '#theme' => 'image_style',
         '#style_name' => 'large',
@@ -303,41 +339,58 @@ function sameernyaupane_itonics_products_view($pid) {
     }
   }
 
-  $build['title'] = array(
-    '#prefix' => '<h1>',
+  // Right column for details
+  $build['right_column'] = array(
+    '#prefix' => '<div class="product-right-column">',
+    '#suffix' => '</div>',
+  );
+
+  $build['right_column']['title'] = array(
+    '#prefix' => '<h1 class="product-title">',
     '#markup' => check_plain($product->title),
     '#suffix' => '</h1>',
   );
 
-  $build['type'] = array(
-    '#prefix' => '<div class="product-type"><strong>' . t('Type:') . '</strong> ',
+  $build['right_column']['meta'] = array(
+    '#prefix' => '<div class="product-meta">',
+    '#suffix' => '</div>',
+  );
+
+  $build['right_column']['meta']['type'] = array(
+    '#prefix' => '<div class="product-type"><span class="label">' . t('Type:') . '</span> ',
     '#markup' => check_plain($product->type),
     '#suffix' => '</div>',
   );
 
   $categories = unserialize($product->category);
-  $build['category'] = array(
-    '#prefix' => '<div class="product-categories"><strong>' . t('Categories:') . '</strong> ',
+  $build['right_column']['meta']['category'] = array(
+    '#prefix' => '<div class="product-categories"><span class="label">' . t('Categories:') . '</span> ',
     '#markup' => implode(', ', array_map('check_plain', $categories)),
     '#suffix' => '</div>',
   );
 
-  $build['owner'] = array(
-    '#prefix' => '<div class="product-owner"><strong>' . t('Owner:') . '</strong> ',
+  $build['right_column']['meta']['owner'] = array(
+    '#prefix' => '<div class="product-owner"><span class="label">' . t('Owner:') . '</span> ',
     '#markup' => check_plain($product->owner_email),
     '#suffix' => '</div>',
   );
 
   if (!empty($product->expiry_date)) {
-    $build['expiry'] = array(
-      '#prefix' => '<div class="product-expiry"><strong>' . t('Expires:') . '</strong> ',
+    $build['right_column']['meta']['expiry'] = array(
+      '#prefix' => '<div class="product-expiry"><span class="label">' . t('Expires:') . '</span> ',
       '#markup' => format_date($product->expiry_date, 'custom', 'Y-m-d'),
       '#suffix' => '</div>',
     );
   }
 
+  // Content section
+  $build['content'] = array(
+    '#prefix' => '<div class="product-content">',
+    '#suffix' => '</div>',
+  );
+
   if (!empty($product->summary)) {
-    $build['summary'] = array(
+    $build['content']['summary'] = array(
       '#prefix' => '<div class="product-summary"><h2>' . t('Summary') . '</h2>',
       '#markup' => check_plain($product->summary),
       '#suffix' => '</div>',
@@ -345,12 +398,154 @@ function sameernyaupane_itonics_products_view($pid) {
   }
 
   if (!empty($product->description)) {
-    $build['description'] = array(
+    $build['content']['description'] = array(
       '#prefix' => '<div class="product-description"><h2>' . t('Description') . '</h2>',
-      '#markup' => check_markup($product->description),
+      '#markup' => filter_xss_admin($product->description),
       '#suffix' => '</div>',
     );
   }
 
   return $build;
+}
+
+/**
+ * Title callback for product view page.
+ */
+function sameernyaupane_itonics_products_view_title($pid) {
+  $product = db_select('sameernyaupane_itonics_products', 'p')
+    ->fields('p', array('title'))
+    ->condition('pid', $pid)
+    ->execute()
+    ->fetchField();
+  
+  return $product ? $product : t('Product not found');
+}
+
+/**
+ * Form callback for product deletion.
+ */
+function sameernyaupane_itonics_products_delete_form($form, &$form_state, $pid) {
+  $form['pid'] = array(
+    '#type' => 'value',
+    '#value' => $pid,
+  );
+
+  $product = db_select('sameernyaupane_itonics_products', 'p')
+    ->fields('p', array('title'))
+    ->condition('pid', $pid)
+    ->execute()
+    ->fetchField();
+
+  return confirm_form(
+    $form,
+    t('Are you sure you want to delete %title?', array('%title' => $product)),
+    'admin/products',
+    t('This action cannot be undone.'),
+    t('Delete'),
+    t('Cancel')
+  );
+}
+
+/**
+ * Submit handler for product deletion form.
+ */
+function sameernyaupane_itonics_products_delete_form_submit($form, &$form_state) {
+  if ($form_state['values']['confirm']) {
+    $pid = $form_state['values']['pid'];
+    
+    // Delete the product
+    db_delete('sameernyaupane_itonics_products')
+      ->condition('pid', $pid)
+      ->execute();
+    
+    drupal_set_message(t('The product has been deleted.'));
+  }
+  
+  $form_state['redirect'] = 'admin/products';
+}
+
+/**
+ * Form callback: Search form for products.
+ */
+function sameernyaupane_itonics_products_search_form($form, &$form_state) {
+  $form['filters'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Search and Filter'),
+    '#collapsible' => TRUE,
+    '#collapsed' => FALSE,
+    '#attributes' => array('class' => array('product-search-filters')),
+  );
+  
+  $form['filters']['search'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Search'),
+    '#default_value' => isset($_GET['search']) ? $_GET['search'] : '',
+  );
+  
+  $form['filters']['category'] = array(
+    '#type' => 'select',
+    '#title' => t('Category'),
+    '#options' => array('' => t('- Any -')) + sameernyaupane_itonics_products_get_categories(),
+    '#default_value' => isset($_GET['category']) ? $_GET['category'] : '',
+  );
+  
+  $form['filters']['type'] = array(
+    '#type' => 'select',
+    '#title' => t('Type'),
+    '#options' => array(
+      '' => t('- Any -'),
+      'physical' => t('Physical'),
+      'digital' => t('Digital'),
+    ),
+    '#default_value' => isset($_GET['type']) ? $_GET['type'] : '',
+  );
+  
+  $form['filters']['submit'] = array(
+    '#type' => 'submit',
+    '#value' => t('Apply'),
+  );
+  
+  $form['filters']['reset'] = array(
+    '#type' => 'link',
+    '#title' => t('Reset'),
+    '#href' => 'admin/products',
+  );
+  
+  return $form;
+}
+
+/**
+ * Submit handler for the search form.
+ */
+function sameernyaupane_itonics_products_search_form_submit($form, &$form_state) {
+  $form_state['redirect'] = array(
+    'admin/products',
+    array(
+      'query' => array_filter(array(
+        'search' => $form_state['values']['search'],
+        'category' => $form_state['values']['category'],
+        'type' => $form_state['values']['type'],
+      )),
+    ),
+  );
+}
+
+/**
+ * Helper function to get product categories.
+ */
+function sameernyaupane_itonics_products_get_categories() {
+  return array(
+    'software' => t('Software'),
+    'hardware' => t('Hardware'),
+    'service' => t('Service'),
+    'cloud' => t('Cloud Solutions'),
+    'security' => t('Security Products'),
+    'networking' => t('Networking'),
+    'mobile' => t('Mobile Applications'),
+    'ai' => t('Artificial Intelligence'),
+    'iot' => t('Internet of Things'),
+    'analytics' => t('Analytics Tools'),
+    'database' => t('Database Solutions'),
+    'consulting' => t('Consulting Services'),
+  );
 } 

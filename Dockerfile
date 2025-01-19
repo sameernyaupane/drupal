@@ -8,9 +8,18 @@ RUN apt-get update && apt-get install -y \
     libjpeg-dev \
     libpq-dev \
     libxml2-dev \
-    && docker-php-ext-configure gd --with-jpeg \
-    && docker-php-ext-install gd mysqli pdo pdo_mysql xml \
+    zlib1g-dev \
+    libfreetype6-dev \
+    && docker-php-ext-configure gd --with-jpeg --with-freetype \
+    && docker-php-ext-install -j$(nproc) gd mysqli pdo pdo_mysql xml \
     && rm -rf /var/lib/apt/lists/*
+
+# Add PHP configuration
+RUN { \
+    echo 'upload_max_filesize = 50M'; \
+    echo 'post_max_size = 50M'; \
+    echo 'memory_limit = 256M'; \
+} > /usr/local/etc/php/conf.d/uploads.ini
 
 # Download and extract Drupal 7
 RUN wget https://ftp.drupal.org/files/projects/drupal-7.92.tar.gz && \

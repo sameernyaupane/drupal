@@ -64,4 +64,53 @@ function sameernyaupane_itonics_products_schema() {
   );
   
   return $schema;
+}
+
+/**
+ * Implements hook_install().
+ */
+function sameernyaupane_itonics_products_install() {
+  // Create image styles
+  $styles = array(
+    'product_thumbnail' => array(
+      'effects' => array(
+        array(
+          'name' => 'image_scale_and_crop',
+          'data' => array('width' => 100, 'height' => 100),
+        ),
+      ),
+    ),
+    'product_medium' => array(
+      'effects' => array(
+        array(
+          'name' => 'image_scale',
+          'data' => array('width' => 400, 'height' => NULL),
+        ),
+      ),
+    ),
+    'product_large' => array(
+      'effects' => array(
+        array(
+          'name' => 'image_scale',
+          'data' => array('width' => 800, 'height' => NULL),
+        ),
+      ),
+    ),
+    'product_grid' => array(
+      'effects' => array(
+        array(
+          'name' => 'image_scale_and_crop',
+          'data' => array('width' => 300, 'height' => 200),
+        ),
+      ),
+    ),
+  );
+  
+  foreach ($styles as $style_name => $style_data) {
+    $style = image_style_save(array('name' => $style_name));
+    foreach ($style_data['effects'] as $effect) {
+      $effect['isid'] = $style['isid'];
+      image_effect_save($effect);
+    }
+  }
 } 
